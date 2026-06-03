@@ -1,21 +1,16 @@
 package sokoban.model.entity.floor;
 
-import sokoban.dto.EntityType;
 import sokoban.model.Position;
+import sokoban.model.strategy.DefaultLandBehavior;
 
 public class Empty extends Floor {
 
     public Empty(Position position) {
-        super(position);
+        super(position, new DefaultLandBehavior());
     }
 
     @Override
     public boolean isWalkable() {
         return true;
-    }
-
-    @Override
-    public EntityType getType() {
-        return EntityType.EMPTY;
     }
 }

@@ -1,10 +1,6 @@
 package sokoban.model;
 
 import sokoban.model.entity.BoardEntity;
-import sokoban.model.entity.box.Box;
-import sokoban.model.entity.floor.Floor;
-import sokoban.model.entity.obstacle.Gate;
-import sokoban.model.entity.obstacle.Lock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,17 +31,17 @@ public class Board {
 
     public BoardEntity getEntityAt(Position pos) {
         for (BoardEntity entity : entities) {
-            if (!(entity instanceof Floor) && entity.getPosition().equals(pos)) {
+            if (!entity.isFloor() && entity.getPosition().equals(pos)) {
                 return entity;
             }
         }
         return getFloorAt(pos);
     }
 
-    public Floor getFloorAt(Position pos) {
+    public BoardEntity getFloorAt(Position pos) {
         for (BoardEntity entity : entities) {
-            if (entity instanceof Floor && entity.getPosition().equals(pos)) {
-                return (Floor) entity;
+            if (entity.isFloor() && entity.getPosition().equals(pos)) {
+                return entity;
             }
         }
         return null;
@@ -53,7 +49,7 @@ public class Board {
 
     public boolean hasLockAt(Position pos) {
         for (BoardEntity entity : entities) {
-            if (entity instanceof Lock && entity.getPosition().equals(pos)) {
+            if (entity.isLock() && entity.getPosition().equals(pos)) {
                 return true;
             }
         }
@@ -62,17 +58,15 @@ public class Board {
 
     public void openAllGates() {
         for (BoardEntity entity : entities) {
-            if (entity instanceof Gate) {
-                ((Gate) entity).open();
-            }
+            entity.openGate();
         }
     }
 
-    public List<Box> getBoxes() {
-        List<Box> boxes = new ArrayList<>();
+    public List<BoardEntity> getBoxes() {
+        List<BoardEntity> boxes = new ArrayList<>();
         for (BoardEntity entity : entities) {
-            if (entity instanceof Box) {
-                boxes.add((Box) entity);
+            if (entity.isBox()) {
+                boxes.add(entity);
             }
         }
         return boxes;

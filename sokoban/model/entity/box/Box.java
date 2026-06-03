@@ -3,14 +3,23 @@ package sokoban.model.entity.box;
 import sokoban.model.Board;
 import sokoban.model.Position;
 import sokoban.model.entity.BoardEntity;
+import sokoban.model.strategy.PushBehavior;
 
 public abstract class Box extends BoardEntity {
 
-    protected Box(Position position) {
+    private final PushBehavior pushBehavior;
+
+    protected Box(Position position, PushBehavior pushBehavior) {
         super(position);
+        this.pushBehavior = pushBehavior;
     }
 
-    public abstract boolean canBePushed();
+    @Override
+    public boolean isBox() { return true; }
 
-    public abstract void onPushed(Board board);
+    @Override
+    public boolean canBePushed() { return pushBehavior.canBePushed(); }
+
+    @Override
+    public void onPushed(Board board) { pushBehavior.onPushed(board, this); }
 }

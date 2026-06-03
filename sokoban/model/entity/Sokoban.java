@@ -1,6 +1,5 @@
 package sokoban.model.entity;
 
-import sokoban.dto.EntityType;
 import sokoban.model.Position;
 
 public class Sokoban extends BoardEntity {
@@ -10,7 +9,8 @@ public class Sokoban extends BoardEntity {
     }
 
     @Override
-    public EntityType getType() {
-        return EntityType.SOKOBAN;
-    }
+    public boolean isSokoban() { return true; }
+
+    @Override
+    public boolean canWalkThroughLock() { return true; }
 }
