@@ -1,16 +1,13 @@
 package sokoban.model;
 
 import sokoban.model.entity.BoardEntity;
-import sokoban.model.entity.Sokoban;
-import sokoban.model.entity.box.Box;
-import sokoban.model.entity.floor.Floor;
 
 public class GameEngine {
 
     private final Board board;
-    private final Sokoban sokoban;
+    private final BoardEntity sokoban;
 
-    public GameEngine(Board board, Sokoban sokoban) {
+    public GameEngine(Board board, BoardEntity sokoban) {
         this.board = board;
         this.sokoban = sokoban;
     }
@@ -19,7 +16,7 @@ public class GameEngine {
         return board;
     }
 
-    public Sokoban getSokoban() {
+    public BoardEntity getSokoban() {
         return sokoban;
     }
 
@@ -32,9 +29,8 @@ public class GameEngine {
         BoardEntity target = board.getEntityAt(newPos);
 
         boolean pushed = false;
-        if (target instanceof Box) {
-            Box box = (Box) target;
-            if (!tryPushBox(box, dir)) {
+        if (target.canBePushed()) {
+            if (!tryPushBox(target, dir)) {
                 return MoveResult.blocked();
             }
             pushed = true;
@@ -46,7 +42,7 @@ public class GameEngine {
         return new MoveResult(true, pushed);
     }
 
-    private boolean tryPushBox(Box box, Direction dir) {
+    private boolean tryPushBox(BoardEntity box, Direction dir) {
         if (!box.canBePushed()) {
             return false;
         }
@@ -62,7 +58,7 @@ public class GameEngine {
         box.setPosition(destination);
         box.onPushed(board);
 
-        Floor under = board.getFloorAt(box.getPosition());
+        BoardEntity under = board.getFloorAt(box.getPosition());
         if (under != null) {
             under.onBoxLanded(box, dir, board);
         }
@@ -70,8 +66,8 @@ public class GameEngine {
     }
 
     public boolean checkVictory() {
-        for (Box box : board.getBoxes()) {
-            Floor floor = board.getFloorAt(box.getPosition());
+        for (BoardEntity box : board.getBoxes()) {
+            BoardEntity floor = board.getFloorAt(box.getPosition());
             if (floor == null || !floor.isGoal()) {
                 return false;
             }

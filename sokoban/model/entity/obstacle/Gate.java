@@ -1,6 +1,5 @@
 package sokoban.model.entity.obstacle;
 
-import sokoban.dto.EntityType;
 import sokoban.model.Position;
 import sokoban.model.entity.BoardEntity;
 
@@ -30,11 +29,6 @@ public class Gate extends BoardEntity {
     }
 
     @Override
-    public EntityType getType() {
-        return isOpen ? EntityType.GATE_OPEN : EntityType.GATE_CLOSED;
-    }
-
-    @Override
     public boolean isWalkableBy(BoardEntity actor) {
         return isOpen;
     }
@@ -42,5 +36,10 @@ public class Gate extends BoardEntity {
     @Override
     public boolean isBoxTraversable(BoardEntity box) {
         return isOpen;
+    }
+
+    @Override
+    public void openGate() {
+        open();
     }
 }

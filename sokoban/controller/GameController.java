@@ -1,6 +1,5 @@
 package sokoban.controller;
 
-import sokoban.dto.BoardEntityDTO;
 import sokoban.dto.GameStateDTO;
 import sokoban.model.Board;
 import sokoban.model.Direction;
@@ -8,7 +7,7 @@ import sokoban.model.GameEngine;
 import sokoban.model.GameStats;
 import sokoban.model.MoveResult;
 import sokoban.model.entity.BoardEntity;
-import sokoban.model.entity.Sokoban;
+import sokoban.model.observer.GameStatsObserver;
 import sokoban.model.factory.LevelParser;
 
 import java.util.ArrayList;
@@ -33,7 +32,7 @@ public class GameController {
 
     public void loadLevel(String path, int nivelActual) {
         Board board = levelParser.parse(path);
-        Sokoban sokoban = findSokoban(board);
+        BoardEntity sokoban = findSokoban(board);
         if (sokoban == null) {
             throw new IllegalStateException("El nivel no contiene un Sokoban (@)");
         }
@@ -51,12 +50,8 @@ public class GameController {
     public GameStateDTO getCurrentState() {
         requireEngine();
         Board board = engine.getBoard();
-        List<BoardEntityDTO> dtos = new ArrayList<>();
-        for (BoardEntity entity : board.getEntities()) {
-            dtos.add(new BoardEntityDTO(entity.getPosition(), entity.getType()));
-        }
         return new GameStateDTO(
-                dtos,
+                new ArrayList<>(),
                 board.getRows(),
                 board.getCols(),
                 stats.getMovimientos(),
@@ -65,14 +60,18 @@ public class GameController {
                 engine.checkVictory());
     }
 
+    public void addStatsObserver(GameStatsObserver observer) {
+        stats.addObserver(observer);
+    }
+
     public boolean isVictoria() {
         return engine != null && engine.checkVictory();
     }
 
-    private Sokoban findSokoban(Board board) {
+    private BoardEntity findSokoban(Board board) {
         for (BoardEntity entity : board.getEntities()) {
-            if (entity instanceof Sokoban) {
-                return (Sokoban) entity;
+            if (entity.isSokoban()) {
+                return entity;
             }
         }
         return null;
