@@ -50,8 +50,18 @@ public class GameController {
     public GameStateDTO getCurrentState() {
         requireEngine();
         Board board = engine.getBoard();
+        
+        List<BoardEntityDTO> entityDTOs = new ArrayList<>();
+        for (BoardEntity entity : board.getEntities()) {
+            BoardEntityDTO dto = new BoardEntityDTO(
+                entity.getPosition(),
+                entity.getType()
+            );
+            entityDTOs.add(dto);
+        }
+        
         return new GameStateDTO(
-                new ArrayList<>(),
+                entityDTOs,
                 board.getRows(),
                 board.getCols(),
                 stats.getMovimientos(),
