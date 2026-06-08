@@ -2,14 +2,25 @@ package sokoban.model;
 
 import sokoban.model.entity.BoardEntity;
 
-public class GameEngine {
+public class GameModel {
 
-    private final Board board;
-    private final BoardEntity sokoban;
+    private Board board;
+    private BoardEntity sokoban;
+    private final GameStats stats;
 
-    public GameEngine(Board board, BoardEntity sokoban) {
+    private int nivelActual;
+    private String currentLevelPath;
+
+    public GameModel() {
+        this.stats = new GameStats();
+    }
+
+    public void loadLevel(Board board, BoardEntity sokoban, int nivelActual, String currentLevelPath) {
         this.board = board;
         this.sokoban = sokoban;
+        this.nivelActual = nivelActual;
+        this.currentLevelPath = currentLevelPath;
+        this.stats.reset();
     }
 
     public Board getBoard() {
@@ -20,10 +31,29 @@ public class GameEngine {
         return sokoban;
     }
 
-    public MoveResult move(Direction dir) {
+    public GameStats getStats() {
+        return stats;
+    }
+
+    public int getNivelActual() {
+        return nivelActual;
+    }
+
+    public String getCurrentLevelPath() {
+        return currentLevelPath;
+    }
+
+    public boolean isLoaded() {
+        return board != null && sokoban != null;
+    }
+
+    public void move(Direction dir) {
+        if (!isLoaded()) return;
+
         Position newPos = sokoban.getPosition().translate(dir);
         if (!board.isInside(newPos)) {
-            return MoveResult.blocked();
+            stats.record(MoveResult.blocked());
+            return;
         }
 
         BoardEntity target = board.getEntityAt(newPos);
@@ -31,15 +61,17 @@ public class GameEngine {
         boolean pushed = false;
         if (target.canBePushed()) {
             if (!tryPushBox(target, dir)) {
-                return MoveResult.blocked();
+                stats.record(MoveResult.blocked());
+                return;
             }
             pushed = true;
         } else if (!target.isWalkableBy(sokoban)) {
-            return MoveResult.blocked();
+            stats.record(MoveResult.blocked());
+            return;
         }
 
         sokoban.setPosition(newPos);
-        return new MoveResult(true, pushed);
+        stats.record(new MoveResult(true, pushed));
     }
 
     private boolean tryPushBox(BoardEntity box, Direction dir) {
@@ -66,6 +98,7 @@ public class GameEngine {
     }
 
     public boolean checkVictory() {
+        if (!isLoaded()) return false;
         for (BoardEntity box : board.getBoxes()) {
             BoardEntity floor = board.getFloorAt(box.getPosition());
             if (floor == null || !floor.isGoal()) {
