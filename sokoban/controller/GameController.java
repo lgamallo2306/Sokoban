@@ -1,33 +1,25 @@
 package sokoban.controller;
 
-import sokoban.dto.BoardEntityDTO;
-import sokoban.dto.EntityType;
 import sokoban.dto.GameStateDTO;
 import sokoban.model.Board;
 import sokoban.model.Direction;
-import sokoban.model.GameModel;
+import sokoban.model.GameEngine;
+import sokoban.model.GameStats;
+import sokoban.model.MoveResult;
 import sokoban.model.entity.BoardEntity;
-import sokoban.model.entity.Sokoban;
-import sokoban.model.entity.box.FragileBox;
-import sokoban.model.entity.box.KeyBox;
-import sokoban.model.entity.box.NormalBox;
-import sokoban.model.entity.floor.Empty;
-import sokoban.model.entity.floor.Slippery;
-import sokoban.model.entity.floor.Target;
-import sokoban.model.entity.obstacle.Gate;
-import sokoban.model.entity.obstacle.Lock;
-import sokoban.model.entity.obstacle.Wall;
 import sokoban.model.observer.GameStatsObserver;
 import sokoban.model.factory.LevelParser;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public class GameController {
 
     private final LevelParser levelParser;
-    private final GameModel model;
+    private final GameStats stats;
+
+    private GameEngine engine;
+    private int nivelActual;
 
     public GameController() {
         this(new LevelParser());
@@ -35,7 +27,7 @@ public class GameController {
 
     public GameController(LevelParser levelParser) {
         this.levelParser = levelParser;
-        this.model = new GameModel();
+        this.stats = new GameStats();
     }
 
     public void loadLevel(String path, int nivelActual) {
@@ -44,82 +36,37 @@ public class GameController {
         if (sokoban == null) {
             throw new IllegalStateException("El nivel no contiene un Sokoban (@)");
         }
-        this.model.loadLevel(board, sokoban, nivelActual, path);
+        this.engine = new GameEngine(board, sokoban);
+        this.nivelActual = nivelActual;
+        this.stats.reset();
     }
 
     public void handleInput(Direction dir) {
-        model.move(dir);
+        requireEngine();
+        MoveResult result = engine.move(dir);
+        stats.record(result);
     }
 
     public GameStateDTO getCurrentState() {
-        requireModel();
-        Board board = model.getBoard();
-        List<BoardEntityDTO> dtos = mapEntitiesToDTOs(board.getEntities());
-        dtos.sort(Comparator.comparingInt(dto -> dto.getTipo().getRenderPriority()));
+        requireEngine();
+        Board board = engine.getBoard();
         return new GameStateDTO(
-                dtos,
+                new ArrayList<>(),
                 board.getRows(),
                 board.getCols(),
-                model.getStats().getMovimientos(),
-                model.getStats().getEmpujes(),
-                model.getNivelActual(),
-                model.checkVictory());
+                stats.getMovimientos(),
+                stats.getEmpujes(),
+                nivelActual,
+                engine.checkVictory());
     }
 
     public void addStatsObserver(GameStatsObserver observer) {
-        model.getStats().addObserver(observer);
+        stats.addObserver(observer);
     }
 
     public boolean isVictoria() {
-        return model.isLoaded() && model.checkVictory();
+        return engine != null && engine.checkVictory();
     }
-
-    public void restartLevel() {
-        if (model.isLoaded() && model.getCurrentLevelPath() != null) {
-            loadLevel(model.getCurrentLevelPath(), model.getNivelActual());
-        }
-    }
-
-    public void undo() {
-        // TODO: implementar con patrón Memento
-    }
-
-    // ── Mapeo de entidades del modelo a DTOs ──────────────────
-
-    private List<BoardEntityDTO> mapEntitiesToDTOs(List<BoardEntity> entities) {
-        List<BoardEntityDTO> dtos = new ArrayList<>();
-        for (BoardEntity entity : entities) {
-            EntityType tipo = resolveEntityType(entity);
-            String label = resolveLabel(entity);
-            dtos.add(new BoardEntityDTO(entity.getPosition(), tipo, label));
-        }
-        return dtos;
-    }
-
-    private EntityType resolveEntityType(BoardEntity entity) {
-        if (entity instanceof Wall)       return EntityType.WALL;
-        if (entity instanceof Sokoban)    return EntityType.SOKOBAN;
-        if (entity instanceof KeyBox)     return EntityType.KEY_BOX;
-        if (entity instanceof FragileBox) return EntityType.FRAGILE_BOX;
-        if (entity instanceof NormalBox)  return EntityType.NORMAL_BOX;
-        if (entity instanceof Target)    return EntityType.TARGET;
-        if (entity instanceof Slippery)  return EntityType.SLIPPERY;
-        if (entity instanceof Lock)      return EntityType.LOCK;
-        if (entity instanceof Gate) {
-            return ((Gate) entity).isOpen() ? EntityType.GATE_OPEN : EntityType.GATE_CLOSED;
-        }
-        if (entity instanceof Empty)     return EntityType.EMPTY;
-        return EntityType.EMPTY;
-    }
-
-    private String resolveLabel(BoardEntity entity) {
-        if (entity instanceof FragileBox) {
-            return String.valueOf(((FragileBox) entity).getResistance());
-        }
-        return "";
-    }
-
-    // ── Utilidades internas ───────────────────────────────────
 
     private BoardEntity findSokoban(Board board) {
         for (BoardEntity entity : board.getEntities()) {
@@ -130,8 +77,8 @@ public class GameController {
         return null;
     }
 
-    private void requireModel() {
-        if (!model.isLoaded()) {
+    private void requireEngine() {
+        if (engine == null) {
             throw new IllegalStateException("No hay nivel cargado");
         }
     }
