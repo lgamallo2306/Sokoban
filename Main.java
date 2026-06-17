@@ -1,49 +1,39 @@
-import sokoban.controller.GameController;
-import sokoban.dto.BoardEntityDTO;
-import sokoban.dto.EntityType;
-import sokoban.dto.GameStateDTO;
-import sokoban.model.Direction;
+import sokoban.controlador.ControladorJuego;
+import sokoban.modelo.Juego;
+import sokoban.modelo.Tablero;
+import sokoban.modelo.factory.CargadorNiveles;
+import sokoban.singleton.GestorSonido;
+import sokoban.vista.VistaJuego;
 
+import javax.swing.SwingUtilities;
+
+/**
+ * Punto de entrada. Arma el grafo de objetos (modelo, vista, controlador,
+ * observadores) y muestra la ventana del juego.
+ */
 public class Main {
 
+    private static final String NIVEL_INICIAL = "lvl3.txt";
+
     public static void main(String[] args) {
-        GameController controller = new GameController();
-        controller.loadLevel("lvl1.txt", 1);
-
-        System.out.println("=== Estado inicial ===");
-        render(controller.getCurrentState());
-
-        Direction[] secuencia = { Direction.RIGHT, Direction.RIGHT };
-        for (Direction dir : secuencia) {
-            controller.handleInput(dir);
-            System.out.println("\n=== Tras mover " + dir + " ===");
-            render(controller.getCurrentState());
-        }
-
-        System.out.println("\nVictoria: " + controller.isVictoria());
+        String ruta = args.length > 0 ? args[0] : NIVEL_INICIAL;
+        SwingUtilities.invokeLater(() -> iniciar(ruta));
     }
 
-    private static void render(GameStateDTO dto) {
-        char[][] grid = new char[dto.getRows()][dto.getCols()];
-        int[][] prio = new int[dto.getRows()][dto.getCols()];
-        for (int r = 0; r < dto.getRows(); r++) {
-            for (int c = 0; c < dto.getCols(); c++) {
-                grid[r][c] = ' ';
-            }
-        }
-        for (BoardEntityDTO e : dto.getEntities()) {
-            int r = e.getPosition().getRow();
-            int c = e.getPosition().getCol();
-            EntityType type = e.getTipo();
-            if (type.getRenderPriority() >= prio[r][c]) {
-                grid[r][c] = type.getSymbol();
-                prio[r][c] = type.getRenderPriority();
-            }
-        }
-        for (int r = 0; r < dto.getRows(); r++) {
-            System.out.println(new String(grid[r]));
-        }
-        System.out.println("Mov: " + dto.getMovimientos() + " | Empujes: " + dto.getEmpujes()
-                + " | Nivel: " + dto.getNivelActual());
+    private static void iniciar(String ruta) {
+        CargadorNiveles cargador = new CargadorNiveles();
+        Tablero tablero = cargador.cargar(ruta);
+
+        Juego juego = new Juego(tablero, 1, ruta);
+
+        VistaJuego vista = new VistaJuego();
+        juego.agregarObservador(vista);
+        juego.agregarObservador(GestorSonido.getInstancia());
+
+        ControladorJuego controlador = new ControladorJuego(juego);
+        vista.inicializar(controlador);
+        vista.setVisible(true);
+
+        juego.notificarEstadoInicial();
     }
 }
