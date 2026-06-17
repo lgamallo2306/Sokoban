@@ -1,0 +1,218 @@
+classDiagram
+  direction TB
+
+  %% ===== MODELO (nucleo) =====
+  class Juego {
+    -Tablero tablero
+    -int nivelActual
+    -Estadisticas stats
+    -List~ObservadorJuego~ observadores
+    +moverJugador(Direccion d)
+    +deshacer()
+    +reiniciarNivel()
+    +agregarObservador(ObservadorJuego o)
+    -notificar(EventoJuego e)
+    +crearMemento() MementoJuego
+    +restaurar(MementoJuego m)
+  }
+
+  class Estadisticas {
+    -int movimientos
+    -int empujes
+    -int usosUndo
+  }
+
+  %% ===== OBSERVER =====
+  class ObservadorJuego {
+    <<interface>>
+    +actualizar(EventoJuego e)
+  }
+
+  %% ===== VISTA =====
+  class VistaJuego {
+    -PanelTablero panelTablero
+    -PanelHUD panelHUD
+    +actualizar(EventoJuego e)
+  }
+  class PanelTablero {
+    +render(Tablero t)
+  }
+  class PanelHUD {
+    -JLabel movimientos
+    -JLabel empujes
+    -JLabel nivel
+    -JButton btnUndo
+    -JButton btnReiniciar
+  }
+
+  %% ===== CONTROLADOR =====
+  class ControladorJuego {
+    -Juego juego
+    +keyPressed(KeyEvent e)
+    +onUndo()
+    +onReiniciar()
+  }
+
+  %% ===== SINGLETON =====
+  class GestorSonido {
+    <<Singleton>>
+    -GestorSonido instancia$
+    +getInstancia()$ GestorSonido
+    +actualizar(EventoJuego e)
+  }
+  class GestorAssets {
+    <<Singleton>>
+    -GestorAssets instancia$
+    +getInstancia()$ GestorAssets
+    +getImagen(String clave) Image
+    +getSonido(String clave) Clip
+  }
+
+  %% ===== MEMENTO (undo) =====
+  class GestorUndo {
+    -Deque~MementoJuego~ historial
+    -int usosConsecutivos
+    +guardar(MementoJuego m)
+    +deshacer() MementoJuego
+  }
+  class MementoJuego {
+    -char[][] estadoTablero
+    -Estadisticas estadoStats
+  }
+
+  %% ===== STRATEGY (puntaje) =====
+  class EstrategiaPuntaje {
+    <<interface>>
+    +calcular(Estadisticas s) int
+  }
+  class PuntajeEstandar {
+    +calcular(Estadisticas s) int
+  }
+
+  %% ===== FACTORY METHOD (carga de niveles) =====
+  class CargadorNiveles {
+    +cargar(String archivoTxt) Tablero
+  }
+  class FabricaElementos {
+    -Map~Character, CreadorElemento~ charMap
+    +crearElemento(char c, Posicion p) ElementoCreado
+  }
+
+  %% ===== TABLERO =====
+  class Tablero {
+    -Celda[][] celdas
+    -Jugador jugador
+    +getCelda(Posicion p) Celda
+    +moverObjeto(Posicion origen, Posicion destino)
+    +esVictoria() boolean
+  }
+  class Celda {
+    -Terreno terreno
+    -ObjetoJuego objeto
+    +estaLibre() boolean
+  }
+
+  %% ===== TERRENOS =====
+  class Terreno {
+    <<abstract>>
+    +alEntrar(ObjetoJuego o, Tablero t)*
+  }
+  class Piso
+  class TerrenoResbaladizo {
+    +alEntrar() desliza hasta chocar
+  }
+  class CasillaDestino {
+    +tieneCaja() boolean
+  }
+  class CasilleroCerrojo {
+    -List~Muro~ murosAsociados
+    +alEntrar() abre muros si CajaLlave
+  }
+
+  %% ===== OBJETOS =====
+  class ObjetoJuego {
+    <<abstract>>
+    -Posicion posicion
+    +esEmpujable() boolean
+    +bloqueaPaso() boolean
+  }
+  class Jugador {
+    +mover(Direccion d)
+  }
+  class Pared
+
+  %% ===== STATE (muros) =====
+  class Muro {
+    -EstadoMuro estado
+    +setEstado(EstadoMuro e)
+    +bloqueaPaso() boolean
+  }
+  class EstadoMuro {
+    <<interface>>
+    +puedeAtravesarse() boolean
+  }
+  class MuroAbierto
+  class MuroCerrado
+
+  %% ===== CAJAS =====
+  class Caja {
+    <<abstract>>
+    +alSerEmpujada(Tablero t)
+  }
+  class CajaNormal
+  class CajaFragil {
+    -int resistencia
+    +alSerEmpujada() resta resistencia
+  }
+  class CajaLlave
+
+  %% ===== RELACIONES: MVC + Observer =====
+  VistaJuego ..|> ObservadorJuego
+  GestorSonido ..|> ObservadorJuego
+  Juego --> ObservadorJuego : notifica
+  VistaJuego *-- PanelTablero
+  VistaJuego *-- PanelHUD
+  PanelTablero ..> GestorAssets : usa
+  GestorSonido ..> GestorAssets : usa
+  ControladorJuego --> Juego : invoca
+  VistaJuego --> ControladorJuego : delega input
+
+  %% ===== RELACIONES: Memento =====
+  Juego *-- GestorUndo
+  GestorUndo o-- MementoJuego : max 15
+  Juego ..> MementoJuego : crea
+
+  %% ===== RELACIONES: Strategy =====
+  Juego --> EstrategiaPuntaje
+  Juego *-- Estadisticas
+  PuntajeEstandar ..|> EstrategiaPuntaje
+
+  %% ===== RELACIONES: Factory + Tablero =====
+  Juego *-- Tablero
+  Juego ..> CargadorNiveles : usa
+  CargadorNiveles ..> FabricaElementos : usa
+  CargadorNiveles ..> Tablero : crea
+  FabricaElementos ..> Terreno : crea
+  FabricaElementos ..> ObjetoJuego : crea
+  Tablero *-- Celda : 1..*
+  Celda --> Terreno
+  Celda --> ObjetoJuego : 0..1
+
+  %% ===== RELACIONES: herencias =====
+  Piso --|> Terreno
+  TerrenoResbaladizo --|> Terreno
+  CasillaDestino --|> Terreno
+  CasilleroCerrojo --|> Terreno
+  Jugador --|> ObjetoJuego
+  Pared --|> ObjetoJuego
+  Muro --|> ObjetoJuego
+  Caja --|> ObjetoJuego
+  CajaNormal --|> Caja
+  CajaFragil --|> Caja
+  CajaLlave --|> Caja
+
+  %% ===== RELACIONES: State =====
+  Muro --> EstadoMuro
+  MuroAbierto ..|> EstadoMuro
+  MuroCerrado ..|> EstadoMuro
+  CasilleroCerrojo ..> Muro : abre
