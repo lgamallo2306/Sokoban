@@ -4,16 +4,34 @@ classDiagram
   %% ===== MODELO (nucleo) =====
   class Juego {
     -Tablero tablero
+    -List~String~ niveles
     -int nivelActual
     -Estadisticas stats
     -List~ObservadorJuego~ observadores
-    +moverJugador(Direccion d)
-    +deshacer()
-    +reiniciarNivel()
-    +agregarObservador(ObservadorJuego o)
-    -notificar(EventoJuego e)
+    -GestorUndo gestorUndo
+    -EstrategiaPuntaje estrategia
+    -CargadorNiveles cargador
+    -FabricaElementos fabrica
+    -EstadoJuego estadoJuego
+    +getTablero() Tablero
+    +getEstadisticas() Estadisticas
+    +getNivelActual() int
+    +hayNivelSiguiente() boolean
+    +puedeDeshacer() boolean
+    +isPausado() boolean
+    +togglePausa() 
+    +getPuntaje() int
+    +agregarObservador(ObservadorJuego o) 
+    +notificarEstadoInicial()
+    +moverJugador(Direccion d) 
     +crearMemento() MementoJuego
-    +restaurar(MementoJuego m)
+    +restaurar(MementoJuego)
+    +deshacer() 
+    +reiniciarNivel() 
+    +siguienteNivel() 
+    -notificar(EventoJuego) 
+    -notificar(EventoJuego.Tipo) 
+    -intentarEmpujar(ObjetoJuego, Posicion, Direccion) boolean
   }
 
   class Estadisticas {
@@ -27,22 +45,81 @@ classDiagram
     <<interface>>
     +actualizar(EventoJuego e)
   }
-
+  class EventoJuego{
+    -Tipo tipo
+    -Tablero tablero
+    -Estadisticas estadisticas
+    -int nivelActual
+    -boolean victoria
+    -int puntaje
+    +getTipo() Tipo
+    +getTablero() Tablero
+    +getEstadisticas() Estadisticas
+    +getNivelActual() int
+    +isVictoria() boolean
+    +getPuntaje() int
+  }
+  class Tipo {
+    <<enumeration>>
+    INICIO
+    MOVIMIENTO
+    EMPUJE
+    BLOQUEADO
+    DESHACER
+    REINICIO
+    VICTORIA
+    PAUSA
+    REANUDA
+}
+  %% ===== CRONOMETRO =====
+  class CronometroNivel{
+    -Timer Timer
+    -segundos int
+    -Consumer<Integer> onTick
+    +actualizar(EventoJuego e)
+    -reiniciar()
+    +getSegundos() int
+  }
   %% ===== VISTA =====
   class VistaJuego {
     -PanelTablero panelTablero
     -PanelHUD panelHUD
+    -victoriaMostrada boolean
+    -controlador ControladorJuego
+    -CronometroNivel cronometro
     +actualizar(EventoJuego e)
+    +setCronometro(CronometroNivel cronometro)
+    +actualizarTiempo(int segundos)
+    +inicializar(ControladorJuego controlador)
+    -mostrarResumenYAvanzar(EventoJuego e)
   }
   class PanelTablero {
     +render(Tablero t)
+    +setPausado(boolean pausado)
+    #paintComponent(Graphics g)
+    -dibujarOverlayPausa( Graphics g)
+    -dibujarTerreno(Graphics g, Terreno terreno, int x, int y)
+    -dibujarMarcador(Graphics g, String clave, Color fallback, int x, int y)
+    -dibujarObjeto(Graphics g, ObjetoJuego objeto, int x, int y)
+    -dibujarJugador(Graphics g, Jugador jugador, int x, int y)
+    -claveObjeto(ObjetoJuego juego) String
+    -dibujarObjetoPorDefecto(Graphics g, ObjetoJuego objeto, int x, int y)
+    -dibujarCaja(Graphics g, int x, int y, Color color)
+    -colorTerreno(Terreno terreno) Color
   }
   class PanelHUD {
     -JLabel movimientos
     -JLabel empujes
     -JLabel nivel
+    -JLabel tiempo
     -JButton btnUndo
     -JButton btnReiniciar
+    -JButton btnPausa
+    +conectar(ControladorJuego controllador)
+    +actualizar(EventoJuego e)
+    +actualizarTiempo(int segundos)
+    -actualizarLabels(int nivelActual, int movs,int emp)
+    
   }
 
   %% ===== CONTROLADOR =====
@@ -51,6 +128,9 @@ classDiagram
     +keyPressed(KeyEvent e)
     +onUndo()
     +onReiniciar()
+    +onTogglePausa()
+    +onSiguienteNivel()
+    +hayNivelSiguiente() boolean
   }
 
   %% ===== SINGLETON =====
@@ -74,10 +154,14 @@ classDiagram
     -int usosConsecutivos
     +guardar(MementoJuego m)
     +deshacer() MementoJuego
+    +puedeDeshacer() boolean
+    +limpiar()
   }
   class MementoJuego {
     -char[][] estadoTablero
     -Estadisticas estadoStats
+    +getEstadoTablero() char[][]
+    +getEstadoStats() Estadisticas
   }
 
   %% ===== STRATEGY (puntaje) =====
@@ -86,6 +170,9 @@ classDiagram
     +calcular(Estadisticas s) int
   }
   class PuntajeEstandar {
+    +calcular(Estadisticas s) int
+  }
+  class PuntajeConTiempo{
     +calcular(Estadisticas s) int
   }
 
@@ -166,6 +253,18 @@ classDiagram
   }
   class CajaLlave
 
+  %% ===== STATE (juego) =====
+  class EstadoJuego {
+    <<interface>>
+    +aceptaAcciones() boolean
+  }
+  class EstadoJugando {
+    +aceptaAcciones() boolean
+  }
+  class EstadoPausado {
+    +aceptaAcciones() boolean
+}
+
   %% ===== RELACIONES: MVC + Observer =====
   VistaJuego ..|> ObservadorJuego
   GestorSonido ..|> ObservadorJuego
@@ -176,6 +275,15 @@ classDiagram
   GestorSonido ..> GestorAssets : usa
   ControladorJuego --> Juego : invoca
   VistaJuego --> ControladorJuego : delega input
+  EventoJuego --> Tablero
+  EventoJuego --> Estadisticas
+  EventoJuego --> Tipo
+  CronometroNivel ..|>  ObservadorJuego
+  PanelHUD  --|> JPanel
+  PanelTablero  --|> JPanel
+  VistaJuego  --|> JFrame
+  VistaJuego ..|> ObservadorJuego
+  ControladorJuego --|> KeyAdapter
 
   %% ===== RELACIONES: Memento =====
   Juego *-- GestorUndo
@@ -186,6 +294,7 @@ classDiagram
   Juego --> EstrategiaPuntaje
   Juego *-- Estadisticas
   PuntajeEstandar ..|> EstrategiaPuntaje
+  PuntajeConTiempo ..|> EstrategiaPuntaje
 
   %% ===== RELACIONES: Factory + Tablero =====
   Juego *-- Tablero
@@ -216,3 +325,7 @@ classDiagram
   MuroAbierto ..|> EstadoMuro
   MuroCerrado ..|> EstadoMuro
   CasilleroCerrojo ..> Muro : abre
+  EstadoPausado  ..|> EstadoJuego
+  EstadoJugando ..|> EstadoJuego
+
+  
