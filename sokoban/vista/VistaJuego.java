@@ -1,6 +1,7 @@
 package sokoban.vista;
 
 import sokoban.controlador.ControladorJuego;
+import sokoban.modelo.cronometro.CronometroNivel;
 import sokoban.modelo.observer.EventoJuego;
 import sokoban.modelo.observer.ObservadorJuego;
 
@@ -18,6 +19,8 @@ public class VistaJuego extends JFrame implements ObservadorJuego {
     private final PanelTablero panelTablero = new PanelTablero();
     private final PanelHUD panelHUD = new PanelHUD();
     private boolean victoriaMostrada;
+    private ControladorJuego controlador;
+    private CronometroNivel cronometro;
 
     public VistaJuego() {
         super("Sokoban");
@@ -27,8 +30,17 @@ public class VistaJuego extends JFrame implements ObservadorJuego {
         add(panelTablero, BorderLayout.CENTER);
     }
 
+    public void setCronometro(CronometroNivel cronometro) {
+        this.cronometro = cronometro;
+    }
+
+    public void actualizarTiempo(int segundos) {
+        panelHUD.actualizarTiempo(segundos);
+    }
+
     /** Enlaza el controlador: teclado en la ventana y acciones de los botones. */
     public void inicializar(ControladorJuego controlador) {
+        this.controlador = controlador;
         addKeyListener(controlador);
         panelHUD.conectar(controlador);
         setFocusable(true);
@@ -42,15 +54,44 @@ public class VistaJuego extends JFrame implements ObservadorJuego {
         panelTablero.render(e.getTablero());
         panelHUD.actualizar(e);
 
+        if (e.getTipo() == EventoJuego.Tipo.PAUSA) {
+            panelTablero.setPausado(true);
+        } else if (e.getTipo() == EventoJuego.Tipo.REANUDA) {
+            panelTablero.setPausado(false);
+        }
+
         if (e.getTipo() == EventoJuego.Tipo.REINICIO || e.getTipo() == EventoJuego.Tipo.INICIO) {
+            panelTablero.setPausado(false);
             victoriaMostrada = false;
         }
         if (e.isVictoria() && !victoriaMostrada) {
             victoriaMostrada = true;
-            int puntaje = e.getPuntaje();
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this,
-                    "Nivel completado!\nPuntaje: " + puntaje,
-                    "Victoria", JOptionPane.INFORMATION_MESSAGE));
+            SwingUtilities.invokeLater(() -> mostrarResumenYAvanzar(e));
+        }
+    }
+
+    private void mostrarResumenYAvanzar(EventoJuego e) {
+        int tiempoFinal = cronometro != null ? cronometro.getSegundos() : 0;
+        String mensaje = String.format(
+                "Nivel %d completado!\n\n" +
+                "Tiempo       : %ds\n" +
+                "Movimientos  : %d\n" +
+                "Empujes      : %d\n" +
+                "Usos de undo : %d\n\n" +
+                "Puntaje final: %d",
+                e.getNivelActual(),
+                tiempoFinal,
+                e.getEstadisticas().getMovimientos(),
+                e.getEstadisticas().getEmpujes(),
+                e.getEstadisticas().getUsosUndo(),
+                e.getPuntaje());
+
+        if (controlador.hayNivelSiguiente()) {
+            JOptionPane.showMessageDialog(this, mensaje, "Nivel completado", JOptionPane.INFORMATION_MESSAGE);
+            controlador.onSiguienteNivel();
+            requestFocusInWindow();
+        } else {
+            JOptionPane.showMessageDialog(this, mensaje + "\n\n¡Juego completado!", "Victoria", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 }

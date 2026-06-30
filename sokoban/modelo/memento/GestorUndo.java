@@ -24,13 +24,17 @@ public class GestorUndo {
         usosConsecutivos = 0;
     }
 
-    /** Devuelve el ultimo estado guardado o null si no se puede deshacer. */
+    /** Retrocede hasta 5 estados y retorna el mas antiguo de los descartados, o null. */
     public MementoJuego deshacer() {
         if (historial.isEmpty() || usosConsecutivos >= MAX_USOS_CONSECUTIVOS) {
             return null;
         }
         usosConsecutivos++;
-        return historial.pop();
+        MementoJuego resultado = null;
+        for (int i = 0; i < 5 && !historial.isEmpty(); i++) {
+            resultado = historial.pop();
+        }
+        return resultado;
     }
 
     public boolean puedeDeshacer() {

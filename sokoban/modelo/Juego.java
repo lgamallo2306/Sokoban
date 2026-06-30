@@ -1,5 +1,8 @@
 package sokoban.modelo;
 
+import sokoban.modelo.estado.EstadoJuego;
+import sokoban.modelo.estado.EstadoJugando;
+import sokoban.modelo.estado.EstadoPausado;
 import sokoban.modelo.factory.CargadorNiveles;
 import sokoban.modelo.factory.FabricaElementos;
 import sokoban.modelo.memento.GestorUndo;
@@ -12,6 +15,7 @@ import sokoban.modelo.strategy.EstrategiaPuntaje;
 import sokoban.modelo.strategy.PuntajeEstandar;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -22,8 +26,8 @@ import java.util.List;
 public class Juego {
 
     private Tablero tablero;
-    private int nivelActual;
-    private final String rutaNivel;
+    private final List<String> niveles;
+    private int indiceActual;
     private final Estadisticas stats;
     private final List<ObservadorJuego> observadores = new ArrayList<>();
 
@@ -31,16 +35,17 @@ public class Juego {
     private final EstrategiaPuntaje estrategia;
     private final CargadorNiveles cargador;
     private final FabricaElementos fabrica;
+    private EstadoJuego estadoJuego = new EstadoJugando();
 
-    public Juego(Tablero tablero, int nivelActual, String rutaNivel) {
-        this(tablero, nivelActual, rutaNivel, new PuntajeEstandar(), new CargadorNiveles(), new FabricaElementos());
+    public Juego(Tablero tablero, List<String> niveles, int indiceActual) {
+        this(tablero, niveles, indiceActual, new PuntajeEstandar(), new CargadorNiveles(), new FabricaElementos());
     }
 
-    public Juego(Tablero tablero, int nivelActual, String rutaNivel,
+    public Juego(Tablero tablero, List<String> niveles, int indiceActual,
                  EstrategiaPuntaje estrategia, CargadorNiveles cargador, FabricaElementos fabrica) {
         this.tablero = tablero;
-        this.nivelActual = nivelActual;
-        this.rutaNivel = rutaNivel;
+        this.niveles = Collections.unmodifiableList(new ArrayList<>(niveles));
+        this.indiceActual = indiceActual;
         this.stats = new Estadisticas();
         this.estrategia = estrategia;
         this.cargador = cargador;
@@ -56,11 +61,29 @@ public class Juego {
     }
 
     public int getNivelActual() {
-        return nivelActual;
+        return indiceActual + 1;
+    }
+
+    public boolean hayNivelSiguiente() {
+        return indiceActual + 1 < niveles.size();
     }
 
     public boolean puedeDeshacer() {
         return gestorUndo.puedeDeshacer();
+    }
+
+    public boolean isPausado() {
+        return !estadoJuego.aceptaAcciones();
+    }
+
+    public void togglePausa() {
+        if (estadoJuego.aceptaAcciones()) {
+            estadoJuego = new EstadoPausado();
+            notificar(new EventoJuego(EventoJuego.Tipo.PAUSA, tablero, stats, getNivelActual(), false, getPuntaje()));
+        } else {
+            estadoJuego = new EstadoJugando();
+            notificar(new EventoJuego(EventoJuego.Tipo.REANUDA, tablero, stats, getNivelActual(), false, getPuntaje()));
+        }
     }
 
     public int getPuntaje() {
@@ -82,12 +105,12 @@ public class Juego {
     private void notificar(EventoJuego.Tipo tipo) {
         boolean victoria = tablero.esVictoria();
         EventoJuego.Tipo tipoFinal = victoria ? EventoJuego.Tipo.VICTORIA : tipo;
-        notificar(new EventoJuego(tipoFinal, tablero, stats, nivelActual, victoria, getPuntaje()));
+        notificar(new EventoJuego(tipoFinal, tablero, stats, getNivelActual(), victoria, getPuntaje()));
     }
 
     /** Notifica el estado inicial para que la vista realice el primer render. */
     public void notificarEstadoInicial() {
-        notificar(new EventoJuego(EventoJuego.Tipo.INICIO, tablero, stats, nivelActual, false, getPuntaje()));
+        notificar(new EventoJuego(EventoJuego.Tipo.INICIO, tablero, stats, getNivelActual(), false, getPuntaje()));
     }
 
     // ===== Logica de juego =====
@@ -97,6 +120,9 @@ public class Juego {
      * y el espacio detras esta libre. Notifica el resultado.
      */
     public void moverJugador(Direccion d) {
+        if (!estadoJuego.aceptaAcciones()) {
+            return;
+        }
         Jugador jugador = tablero.getJugador();
         if (jugador == null) {
             return;
@@ -187,6 +213,9 @@ public class Juego {
     }
 
     public void deshacer() {
+        if (!estadoJuego.aceptaAcciones()) {
+            return;
+        }
         MementoJuego m = gestorUndo.deshacer();
         if (m == null) {
             notificar(EventoJuego.Tipo.BLOQUEADO);
@@ -198,9 +227,22 @@ public class Juego {
     }
 
     public void reiniciarNivel() {
-        this.tablero = cargador.cargar(rutaNivel);
+        estadoJuego = new EstadoJugando();
+        this.tablero = cargador.cargar(niveles.get(indiceActual));
         stats.reiniciar();
         gestorUndo.limpiar();
         notificar(EventoJuego.Tipo.REINICIO);
+    }
+
+    public void siguienteNivel() {
+        if (!hayNivelSiguiente()) {
+            return;
+        }
+        estadoJuego = new EstadoJugando();
+        indiceActual++;
+        this.tablero = cargador.cargar(niveles.get(indiceActual));
+        stats.reiniciar();
+        gestorUndo.limpiar();
+        notificar(new EventoJuego(EventoJuego.Tipo.INICIO, tablero, stats, getNivelActual(), false, getPuntaje()));
     }
 }

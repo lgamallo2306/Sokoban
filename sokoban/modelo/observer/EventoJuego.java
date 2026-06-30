@@ -15,7 +15,9 @@ public class EventoJuego {
         BLOQUEADO,
         DESHACER,
         REINICIO,
-        VICTORIA
+        VICTORIA,
+        PAUSA,
+        REANUDA
     }
 
     private final Tipo tipo;

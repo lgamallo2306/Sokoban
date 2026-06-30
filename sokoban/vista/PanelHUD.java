@@ -16,16 +16,20 @@ public class PanelHUD extends JPanel {
     private final JLabel movimientos = new JLabel();
     private final JLabel empujes = new JLabel();
     private final JLabel nivel = new JLabel();
+    private final JLabel tiempo = new JLabel("Tiempo: 0s");
     private final JButton btnUndo = new JButton("Deshacer (Z)");
     private final JButton btnReiniciar = new JButton("Reiniciar (R)");
+    private final JButton btnPausa = new JButton("Pausa (P)");
 
     public PanelHUD() {
         setLayout(new FlowLayout(FlowLayout.LEFT, 15, 8));
         add(nivel);
         add(movimientos);
         add(empujes);
+        add(tiempo);
         add(btnUndo);
         add(btnReiniciar);
+        add(btnPausa);
         actualizarLabels(1, 0, 0);
     }
 
@@ -33,15 +37,27 @@ public class PanelHUD extends JPanel {
     public void conectar(ControladorJuego controlador) {
         btnUndo.addActionListener(e -> controlador.onUndo());
         btnReiniciar.addActionListener(e -> controlador.onReiniciar());
-        // Evita que los botones roben el foco del teclado.
+        btnPausa.addActionListener(e -> controlador.onTogglePausa());
         btnUndo.setFocusable(false);
         btnReiniciar.setFocusable(false);
+        btnPausa.setFocusable(false);
     }
 
     public void actualizar(EventoJuego e) {
         actualizarLabels(e.getNivelActual(),
                 e.getEstadisticas().getMovimientos(),
                 e.getEstadisticas().getEmpujes());
+        boolean pausado = e.getTipo() == EventoJuego.Tipo.PAUSA;
+        boolean reanudado = e.getTipo() == EventoJuego.Tipo.REANUDA;
+        if (pausado) {
+            btnPausa.setText("Reanudar (P)");
+        } else if (reanudado) {
+            btnPausa.setText("Pausa (P)");
+        }
+    }
+
+    public void actualizarTiempo(int segundos) {
+        tiempo.setText("Tiempo: " + segundos + "s");
     }
 
     private void actualizarLabels(int nivelActual, int movs, int emp) {

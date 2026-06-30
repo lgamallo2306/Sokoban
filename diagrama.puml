@@ -1,0 +1,475 @@
+@startuml SokobanDiagrama
+skinparam classAttributeIconSize 0
+skinparam groupInheritance 2
+hide empty members
+
+' ============================================================
+' ENUMS
+' ============================================================
+enum Direccion {
+    ARRIBA
+    ABAJO
+    IZQUIERDA
+    DERECHA
+}
+
+' ============================================================
+' OBSERVER
+' ============================================================
+package "observer" {
+    interface ObservadorJuego {
+        +actualizar(e: EventoJuego)
+    }
+
+    class EventoJuego {
+        -tipo: Tipo
+        -tablero: Tablero
+        -estadisticas: Estadisticas
+        -nivelActual: int
+        -victoria: boolean
+        -puntaje: int
+        +getTipo(): Tipo
+        +getTablero(): Tablero
+        +getEstadisticas(): Estadisticas
+        +getNivelActual(): int
+        +isVictoria(): boolean
+        +getPuntaje(): int
+    }
+
+    enum "EventoJuego.Tipo" as EventoTipo {
+        INICIO
+        MOVIMIENTO
+        EMPUJE
+        BLOQUEADO
+        DESHACER
+        REINICIO
+        VICTORIA
+        PAUSA
+        REANUDA
+    }
+
+    EventoJuego +-- EventoTipo
+}
+
+' ============================================================
+' STRATEGY - Puntaje
+' ============================================================
+package "strategy" {
+    interface EstrategiaPuntaje {
+        +calcular(s: Estadisticas): int
+    }
+
+    class PuntajeEstandar {
+        -BASE: int = 1000
+        +calcular(s: Estadisticas): int
+    }
+
+    class PuntajeConTiempo {
+        -PENALIZACION_POR_SEGUNDO: int = 2
+        -base: EstrategiaPuntaje
+        -cronometro: CronometroNivel
+        +calcular(s: Estadisticas): int
+    }
+
+    EstrategiaPuntaje <|.. PuntajeEstandar
+    EstrategiaPuntaje <|.. PuntajeConTiempo
+    PuntajeConTiempo --> EstrategiaPuntaje : base
+    PuntajeConTiempo --> CronometroNivel
+}
+
+' ============================================================
+' STATE - Estado del juego (PAUSA)
+' ============================================================
+package "estado" {
+    interface EstadoJuego {
+        +aceptaAcciones(): boolean
+    }
+
+    class EstadoJugando {
+        +aceptaAcciones(): boolean
+    }
+
+    class EstadoPausado {
+        +aceptaAcciones(): boolean
+    }
+
+    EstadoJuego <|.. EstadoJugando
+    EstadoJuego <|.. EstadoPausado
+}
+
+' ============================================================
+' MEMENTO
+' ============================================================
+package "memento" {
+    class MementoJuego {
+        -estadoTablero: char[][]
+        -estadoStats: Estadisticas
+        +getEstadoTablero(): char[][]
+        +getEstadoStats(): Estadisticas
+    }
+
+    class GestorUndo {
+        -MAX_HISTORIAL: int = 15
+        -MAX_USOS_CONSECUTIVOS: int = 3
+        -historial: Deque<MementoJuego>
+        -usosConsecutivos: int
+        +guardar(m: MementoJuego)
+        +deshacer(): MementoJuego
+        +puedeDeshacer(): boolean
+        +limpiar()
+    }
+
+    GestorUndo o-- MementoJuego : historial
+}
+
+' ============================================================
+' CRONOMETRO
+' ============================================================
+package "cronometro" {
+    class CronometroNivel {
+        -timer: Timer
+        -segundos: int
+        -onTick: Consumer<Integer>
+        +getSegundos(): int
+        +actualizar(e: EventoJuego)
+    }
+
+    ObservadorJuego <|.. CronometroNivel
+}
+
+' ============================================================
+' TERRENO
+' ============================================================
+package "terreno" {
+    abstract class Terreno {
+        +alEntrar(o: ObjetoJuego, t: Tablero)
+        +esDestino(): boolean
+        +getSimbolo(): char
+    }
+
+    class Piso {
+        +getSimbolo(): char
+    }
+
+    class CasillaDestino {
+        +esDestino(): boolean
+        +getSimbolo(): char
+    }
+
+    class TerrenoResbaladizo {
+        +alEntrar(o: ObjetoJuego, t: Tablero)
+        +getSimbolo(): char
+    }
+
+    class CasilleroCerrojo {
+        -murosAsociados: List<Muro>
+        +setMurosAsociados(muros: List<Muro>)
+        +alEntrar(o: ObjetoJuego, t: Tablero)
+        +getSimbolo(): char
+    }
+
+    Terreno <|-- Piso
+    Terreno <|-- CasillaDestino
+    Terreno <|-- TerrenoResbaladizo
+    Terreno <|-- CasilleroCerrojo
+    CasilleroCerrojo o-- Muro : murosAsociados
+}
+
+' ============================================================
+' OBJETOS DEL JUEGO
+' ============================================================
+package "objeto" {
+    abstract class ObjetoJuego {
+        -posicion: Posicion
+        -ultimaDireccion: Direccion
+        +getPosicion(): Posicion
+        +setPosicion(p: Posicion)
+        +getUltimaDireccion(): Direccion
+        +setUltimaDireccion(d: Direccion)
+        +esEmpujable(): boolean
+        +bloqueaPaso(): boolean
+        +getSimbolo(): char
+    }
+
+    class Jugador {
+        +getSimbolo(): char
+    }
+
+    class Pared {
+        +bloqueaPaso(): boolean
+        +getSimbolo(): char
+    }
+
+    class Muro {
+        -estado: EstadoMuro
+        +abrir()
+        +bloqueaPaso(): boolean
+        +getSimbolo(): char
+    }
+
+    ' STATE - Estado del Muro
+    interface EstadoMuro {
+        +bloqueaPaso(): boolean
+    }
+    class MuroCerrado {
+        +bloqueaPaso(): boolean
+    }
+    class MuroAbierto {
+        +bloqueaPaso(): boolean
+    }
+
+    EstadoMuro <|.. MuroCerrado
+    EstadoMuro <|.. MuroAbierto
+    Muro --> EstadoMuro : estado
+
+    abstract class Caja {
+        +alSerEmpujada(t: Tablero)
+        +esEmpujable(): boolean
+    }
+
+    class CajaNormal {
+        +alSerEmpujada(t: Tablero)
+        +getSimbolo(): char
+    }
+
+    class CajaFragil {
+        -RESISTENCIA_INICIAL: int = 2
+        -resistencia: int
+        +getResistencia(): int
+        +esEmpujable(): boolean
+        +alSerEmpujada(t: Tablero)
+        +getSimbolo(): char
+    }
+
+    class CajaLlave {
+        +alSerEmpujada(t: Tablero)
+        +getSimbolo(): char
+    }
+
+    ObjetoJuego <|-- Jugador
+    ObjetoJuego <|-- Pared
+    ObjetoJuego <|-- Muro
+    ObjetoJuego <|-- Caja
+    Caja <|-- CajaNormal
+    Caja <|-- CajaFragil
+    Caja <|-- CajaLlave
+
+    ObjetoJuego --> Posicion
+    ObjetoJuego --> Direccion
+}
+
+' ============================================================
+' MODELO CORE
+' ============================================================
+class Posicion {
+    -fila: int
+    -columna: int
+    +getFila(): int
+    +getColumna(): int
+    +trasladar(d: Direccion): Posicion
+}
+
+class Estadisticas {
+    -movimientos: int
+    -empujes: int
+    -usosUndo: int
+    +registrarMovimiento()
+    +registrarEmpuje()
+    +registrarUndo()
+    +reiniciar()
+    +copia(): Estadisticas
+    +copiarDesde(otra: Estadisticas)
+}
+
+class Celda {
+    -terreno: Terreno
+    -objeto: ObjetoJuego
+    +getTerreno(): Terreno
+    +getObjeto(): ObjetoJuego
+    +setObjeto(o: ObjetoJuego)
+    +estaLibre(): boolean
+}
+
+class Tablero {
+    -celdas: Celda[][]
+    -filas: int
+    -columnas: int
+    -jugador: Jugador
+    +getCelda(p: Posicion): Celda
+    +moverObjeto(origen: Posicion, destino: Posicion)
+    +removerObjeto(o: ObjetoJuego)
+    +puedeMoverObjetoA(p: Posicion): boolean
+    +esVictoria(): boolean
+    +vincularCerrojos()
+    +recalcularJugador()
+}
+
+class Juego {
+    -tablero: Tablero
+    -niveles: List<String>
+    -indiceActual: int
+    -stats: Estadisticas
+    -estadoJuego: EstadoJuego
+    -gestorUndo: GestorUndo
+    -estrategia: EstrategiaPuntaje
+    +moverJugador(d: Direccion)
+    +deshacer()
+    +reiniciarNivel()
+    +siguienteNivel()
+    +togglePausa()
+    +isPausado(): boolean
+    +hayNivelSiguiente(): boolean
+    +getPuntaje(): int
+    +agregarObservador(o: ObservadorJuego)
+    +notificarEstadoInicial()
+}
+
+Celda --> Terreno
+Celda --> ObjetoJuego
+Tablero o-- Celda
+Tablero --> Jugador
+Juego --> Tablero
+Juego --> Estadisticas
+Juego --> EstadoJuego
+Juego --> GestorUndo
+Juego --> EstrategiaPuntaje
+Juego o-- ObservadorJuego : observadores
+Juego --> CargadorNiveles
+Juego --> FabricaElementos
+
+' ============================================================
+' FACTORY
+' ============================================================
+package "factory" {
+    interface CreadorElemento <<functional>> {
+        +crear(p: Posicion): ElementoCreado
+    }
+
+    class ElementoCreado {
+        -terreno: Terreno
+        -objeto: ObjetoJuego
+        +getTerreno(): Terreno
+        +getObjeto(): ObjetoJuego
+    }
+
+    class FabricaElementos {
+        -charMap: Map<Character, CreadorElemento>
+        +crearElemento(c: char, p: Posicion): ElementoCreado
+        +crearObjeto(c: char, p: Posicion): ObjetoJuego
+    }
+
+    class CargadorNiveles {
+        -fabrica: FabricaElementos
+        +cargar(archivoTxt: String): Tablero
+    }
+
+    FabricaElementos --> CreadorElemento
+    FabricaElementos --> ElementoCreado
+    CargadorNiveles --> FabricaElementos
+    CargadorNiveles --> Tablero
+}
+
+' ============================================================
+' SINGLETON
+' ============================================================
+package "singleton" {
+    class GestorAssets <<Singleton>> {
+        -{static} instancia: GestorAssets
+        -rutas: Map<String, String>
+        -imagenes: Map<String, Image>
+        -sonidos: Map<String, Clip>
+        +{static} getInstancia(): GestorAssets
+        +getImagen(clave: String): Image
+        +getSonido(clave: String): Clip
+    }
+
+    class GestorSonido <<Singleton>> {
+        -{static} instancia: GestorSonido
+        +{static} getInstancia(): GestorSonido
+        +actualizar(e: EventoJuego)
+    }
+
+    ObservadorJuego <|.. GestorSonido
+    GestorSonido --> GestorAssets
+}
+
+' ============================================================
+' VISTA (MVC - View)
+' ============================================================
+package "vista" {
+    class VistaJuego {
+        -panelTablero: PanelTablero
+        -panelHUD: PanelHUD
+        -controlador: ControladorJuego
+        -cronometro: CronometroNivel
+        -victoriaMostrada: boolean
+        +inicializar(c: ControladorJuego)
+        +setCronometro(c: CronometroNivel)
+        +actualizarTiempo(segundos: int)
+        +actualizar(e: EventoJuego)
+    }
+
+    class PanelTablero {
+        -CELDA: int = 64
+        -tablero: Tablero
+        -pausado: boolean
+        +render(t: Tablero)
+        +setPausado(pausado: boolean)
+        #paintComponent(g: Graphics)
+    }
+
+    class PanelHUD {
+        -nivel: JLabel
+        -movimientos: JLabel
+        -empujes: JLabel
+        -tiempo: JLabel
+        -btnUndo: JButton
+        -btnReiniciar: JButton
+        -btnPausa: JButton
+        +conectar(c: ControladorJuego)
+        +actualizar(e: EventoJuego)
+        +actualizarTiempo(segundos: int)
+    }
+
+    ObservadorJuego <|.. VistaJuego
+    VistaJuego *-- PanelTablero
+    VistaJuego *-- PanelHUD
+    VistaJuego --> CronometroNivel
+    PanelTablero --> Tablero
+    PanelTablero --> GestorAssets
+}
+
+' ============================================================
+' CONTROLADOR (MVC - Controller)
+' ============================================================
+package "controlador" {
+    class ControladorJuego {
+        -juego: Juego
+        +keyPressed(e: KeyEvent)
+        +onUndo()
+        +onReiniciar()
+        +onTogglePausa()
+        +onSiguienteNivel()
+        +hayNivelSiguiente(): boolean
+    }
+
+    ControladorJuego --> Juego
+    VistaJuego --> ControladorJuego
+}
+
+' ============================================================
+' MAIN
+' ============================================================
+class Main {
+    -{static} NIVELES: List<String>
+    +{static} main(args: String[])
+    -{static} iniciar(niveles: List<String>)
+}
+
+Main --> Juego
+Main --> VistaJuego
+Main --> ControladorJuego
+Main --> CronometroNivel
+Main --> CargadorNiveles
+
+@enduml

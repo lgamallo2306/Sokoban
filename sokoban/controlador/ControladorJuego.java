@@ -41,6 +41,10 @@ public class ControladorJuego extends KeyAdapter {
             case KeyEvent.VK_R:
                 onReiniciar();
                 break;
+            case KeyEvent.VK_ESCAPE:
+            case KeyEvent.VK_P:
+                onTogglePausa();
+                break;
             default:
                 break;
         }
@@ -52,5 +56,17 @@ public class ControladorJuego extends KeyAdapter {
 
     public void onReiniciar() {
         juego.reiniciarNivel();
+    }
+
+    public void onTogglePausa() {
+        juego.togglePausa();
+    }
+
+    public void onSiguienteNivel() {
+        juego.siguienteNivel();
+    }
+
+    public boolean hayNivelSiguiente() {
+        return juego.hayNivelSiguiente();
     }
 }

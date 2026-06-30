@@ -20,6 +20,7 @@ import sokoban.singleton.GestorAssets;
 import javax.swing.JPanel;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
 
@@ -32,9 +33,15 @@ public class PanelTablero extends JPanel {
     private static final int CELDA = 64;
 
     private Tablero tablero;
+    private boolean pausado;
 
     public PanelTablero() {
         setBackground(new Color(30, 30, 40));
+    }
+
+    public void setPausado(boolean pausado) {
+        this.pausado = pausado;
+        repaint();
     }
 
     /** Recibe el tablero a renderizar y solicita el repintado. */
@@ -62,6 +69,23 @@ public class PanelTablero extends JPanel {
                 dibujarObjeto(g, celda.getObjeto(), x, y);
             }
         }
+        if (pausado) {
+            dibujarOverlayPausa(g);
+        }
+    }
+
+    private void dibujarOverlayPausa(Graphics g) {
+        g.setColor(new Color(0, 0, 0, 150));
+        g.fillRect(0, 0, getWidth(), getHeight());
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 48));
+        String texto = "PAUSA";
+        int ancho = g.getFontMetrics().stringWidth(texto);
+        g.drawString(texto, (getWidth() - ancho) / 2, getHeight() / 2);
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        String sub = "ESC / P para continuar";
+        int anchoSub = g.getFontMetrics().stringWidth(sub);
+        g.drawString(sub, (getWidth() - anchoSub) / 2, getHeight() / 2 + 36);
     }
 
     // ===== Terreno =====
