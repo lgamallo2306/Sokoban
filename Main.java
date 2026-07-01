@@ -22,9 +22,8 @@ public class Main {
     private static final List<String> NIVELES = Arrays.asList(
             "lvl4.txt",        // Hielo: cajas que se deslizan hasta el destino
             "lvl5.txt",        // Llave/cerrojo: abrir paso para llegar al destino
-            "lvl_fragil.txt",  // Cajas fragiles: un solo empuje por caja, direccion correcta
-            "lvl2.txt",
-            "lvl1.txt"
+            "lvl_fragil.txt"  // Cajas fragiles: un solo empuje por caja, direccion correcta
+
     );
 
     public static void main(String[] args) {
