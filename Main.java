@@ -20,12 +20,11 @@ import java.util.List;
 public class Main {
 
     private static final List<String> NIVELES = Arrays.asList(
-            "lvl1.txt",   // Tutorial: 1 caja, empuje directo
-            "lvl3.txt",   // Clasico: 2 cajas, 2 destinos
-            "lvl4.txt",   // Hielo: cajas que se deslizan hasta el destino
-            "lvl5.txt",   // Llave/cerrojo: abrir paso para llegar al destino
-            "lvl6.txt",   // Clasico: 3 cajas, navegacion mas compleja
-            "lvl2.txt"    // Desafio final: mezcla de todos los mecanismos
+            "lvl4.txt",        // Hielo: cajas que se deslizan hasta el destino
+            "lvl5.txt",        // Llave/cerrojo: abrir paso para llegar al destino
+            "lvl_fragil.txt",  // Cajas fragiles: un solo empuje por caja, direccion correcta
+            "lvl2.txt",
+            "lvl1.txt"
     );
 
     public static void main(String[] args) {

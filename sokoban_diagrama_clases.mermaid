@@ -1,11 +1,81 @@
 classDiagram
   direction TB
 
-  %% ===== MODELO (nucleo) =====
+  %% ============================================================
+  %% ENUMS
+  %% ============================================================
+  class Direccion {
+    <<enumeration>>
+    ARRIBA
+    ABAJO
+    IZQUIERDA
+    DERECHA
+    -int deltaFila
+    -int deltaColumna
+    +getDeltaFila() int
+    +getDeltaColumna() int
+  }
+
+  %% ============================================================
+  %% MODELO CORE
+  %% ============================================================
+  class Posicion {
+    -int fila
+    -int columna
+    +getFila() int
+    +getColumna() int
+    +trasladar(Direccion d) Posicion
+    +equals(Object o) boolean
+    +hashCode() int
+  }
+
+  class Estadisticas {
+    -int movimientos
+    -int empujes
+    -int usosUndo
+    +registrarMovimiento()
+    +registrarEmpuje()
+    +registrarUndo()
+    +getMovimientos() int
+    +getEmpujes() int
+    +getUsosUndo() int
+    +reiniciar()
+    +copia() Estadisticas
+    +copiarDesde(Estadisticas otra)
+  }
+
+  class Celda {
+    -Terreno terreno
+    -ObjetoJuego objeto
+    +getTerreno() Terreno
+    +getObjeto() ObjetoJuego
+    +setObjeto(ObjetoJuego o)
+    +estaLibre() boolean
+  }
+
+  class Tablero {
+    -Celda[][] celdas
+    -int filas
+    -int columnas
+    -Jugador jugador
+    +getFilas() int
+    +getColumnas() int
+    +getJugador() Jugador
+    +getCelda(Posicion p) Celda
+    +estaDentro(Posicion p) boolean
+    +puedeMoverObjetoA(Posicion p) boolean
+    +moverObjeto(Posicion origen, Posicion destino)
+    +removerObjeto(ObjetoJuego o)
+    +esVictoria() boolean
+    +getCajas() List~Caja~
+    +vincularCerrojos()
+    +recalcularJugador()
+  }
+
   class Juego {
     -Tablero tablero
     -List~String~ niveles
-    -int nivelActual
+    -int indiceActual
     -Estadisticas stats
     -List~ObservadorJuego~ observadores
     -GestorUndo gestorUndo
@@ -19,33 +89,30 @@ classDiagram
     +hayNivelSiguiente() boolean
     +puedeDeshacer() boolean
     +isPausado() boolean
-    +togglePausa() 
+    +togglePausa()
     +getPuntaje() int
-    +agregarObservador(ObservadorJuego o) 
+    +agregarObservador(ObservadorJuego o)
     +notificarEstadoInicial()
-    +moverJugador(Direccion d) 
+    +moverJugador(Direccion d)
     +crearMemento() MementoJuego
-    +restaurar(MementoJuego)
-    +deshacer() 
-    +reiniciarNivel() 
-    +siguienteNivel() 
-    -notificar(EventoJuego) 
-    -notificar(EventoJuego.Tipo) 
-    -intentarEmpujar(ObjetoJuego, Posicion, Direccion) boolean
+    +restaurar(MementoJuego m)
+    +deshacer()
+    +reiniciarNivel()
+    +siguienteNivel()
+    -notificar(EventoJuego e)
+    -notificar(Tipo tipo)
+    -intentarEmpujar(ObjetoJuego caja, Posicion pos, Direccion d) boolean
   }
 
-  class Estadisticas {
-    -int movimientos
-    -int empujes
-    -int usosUndo
-  }
-
-  %% ===== OBSERVER =====
+  %% ============================================================
+  %% OBSERVER
+  %% ============================================================
   class ObservadorJuego {
     <<interface>>
     +actualizar(EventoJuego e)
   }
-  class EventoJuego{
+
+  class EventoJuego {
     -Tipo tipo
     -Tablero tablero
     -Estadisticas estadisticas
@@ -59,6 +126,7 @@ classDiagram
     +isVictoria() boolean
     +getPuntaje() int
   }
+
   class Tipo {
     <<enumeration>>
     INICIO
@@ -70,59 +138,266 @@ classDiagram
     VICTORIA
     PAUSA
     REANUDA
-}
-  %% ===== CRONOMETRO =====
-  class CronometroNivel{
-    -Timer Timer
-    -segundos int
-    -Consumer<Integer> onTick
+  }
+
+  %% ============================================================
+  %% CRONOMETRO
+  %% ============================================================
+  class CronometroNivel {
+    -Timer timer
+    -int segundos
+    -Consumer~Integer~ onTick
+    +getSegundos() int
     +actualizar(EventoJuego e)
     -reiniciar()
-    +getSegundos() int
   }
-  %% ===== VISTA =====
+
+  %% ============================================================
+  %% STATE — estado del juego
+  %% ============================================================
+  class EstadoJuego {
+    <<interface>>
+    +aceptaAcciones() boolean
+  }
+  class EstadoJugando {
+    +aceptaAcciones() boolean
+  }
+  class EstadoPausado {
+    +aceptaAcciones() boolean
+  }
+
+  %% ============================================================
+  %% MEMENTO
+  %% ============================================================
+  class MementoJuego {
+    -char[][] estadoTablero
+    -Estadisticas estadoStats
+    +getEstadoTablero() char[][]
+    +getEstadoStats() Estadisticas
+  }
+
+  class GestorUndo {
+    -int MAX_HISTORIAL$
+    -int MAX_USOS_CONSECUTIVOS$
+    -Deque~MementoJuego~ historial
+    -int usosConsecutivos
+    +guardar(MementoJuego m)
+    +deshacer() MementoJuego
+    +puedeDeshacer() boolean
+    +limpiar()
+  }
+
+  %% ============================================================
+  %% STRATEGY + DECORATOR
+  %% ============================================================
+  class EstrategiaPuntaje {
+    <<interface>>
+    +calcular(Estadisticas s) int
+  }
+  class PuntajeEstandar {
+    -int BASE$
+    +calcular(Estadisticas s) int
+  }
+  class PuntajeConTiempo {
+    -int PENALIZACION_POR_SEGUNDO$
+    -EstrategiaPuntaje base
+    -CronometroNivel cronometro
+    +calcular(Estadisticas s) int
+  }
+
+  %% ============================================================
+  %% TERRENOS — Template Method
+  %% ============================================================
+  class Terreno {
+    <<abstract>>
+    +alEntrar(ObjetoJuego o, Tablero t)*
+    +esDestino() boolean
+    +getSimbolo() char*
+  }
+  class Piso {
+    +alEntrar(ObjetoJuego o, Tablero t)
+    +getSimbolo() char
+  }
+  class CasillaDestino {
+    +esDestino() boolean
+    +alEntrar(ObjetoJuego o, Tablero t)
+    +getSimbolo() char
+  }
+  class TerrenoResbaladizo {
+    +alEntrar(ObjetoJuego o, Tablero t)
+    +getSimbolo() char
+  }
+  class CasilleroCerrojo {
+    -List~Muro~ murosAsociados
+    +setMurosAsociados(List~Muro~ muros)
+    +getMurosAsociados() List~Muro~
+    +alEntrar(ObjetoJuego o, Tablero t)
+    +getSimbolo() char
+  }
+
+  %% ============================================================
+  %% OBJETOS DEL JUEGO
+  %% ============================================================
+  class ObjetoJuego {
+    <<abstract>>
+    -Posicion posicion
+    -Direccion ultimaDireccion
+    +getPosicion() Posicion
+    +setPosicion(Posicion p)
+    +getUltimaDireccion() Direccion
+    +setUltimaDireccion(Direccion d)
+    +esEmpujable() boolean
+    +bloqueaPaso() boolean
+    +getSimbolo() char*
+  }
+  class Jugador {
+    +getSimbolo() char
+  }
+  class Pared {
+    +bloqueaPaso() boolean
+    +getSimbolo() char
+  }
+  class Muro {
+    -EstadoMuro estado
+    +getEstado() EstadoMuro
+    +setEstado(EstadoMuro e)
+    +abrir()
+    +bloqueaPaso() boolean
+    +getSimbolo() char
+  }
+
+  %% ============================================================
+  %% STATE — estado del Muro
+  %% ============================================================
+  class EstadoMuro {
+    <<interface>>
+    +puedeAtravesarse() boolean
+  }
+  class MuroCerrado {
+    +puedeAtravesarse() boolean
+  }
+  class MuroAbierto {
+    +puedeAtravesarse() boolean
+  }
+
+  %% ============================================================
+  %% CAJAS
+  %% ============================================================
+  class Caja {
+    <<abstract>>
+    +esEmpujable() boolean
+    +bloqueaPaso() boolean
+    +alSerEmpujada(Tablero t)*
+  }
+  class CajaNormal {
+    +alSerEmpujada(Tablero t)
+    +getSimbolo() char
+  }
+  class CajaFragil {
+    -int RESISTENCIA_INICIAL$
+    -int resistencia
+    +getResistencia() int
+    +esEmpujable() boolean
+    +alSerEmpujada(Tablero t)
+    +getSimbolo() char
+  }
+  class CajaLlave {
+    +alSerEmpujada(Tablero t)
+    +getSimbolo() char
+  }
+
+  %% ============================================================
+  %% FACTORY METHOD
+  %% ============================================================
+  class CreadorElemento {
+    <<interface>>
+    +crear(Posicion p) ElementoCreado
+  }
+  class ElementoCreado {
+    -Terreno terreno
+    -ObjetoJuego objeto
+    +getTerreno() Terreno
+    +getObjeto() ObjetoJuego
+  }
+  class FabricaElementos {
+    -Map~Character,CreadorElemento~ charMap
+    +crearElemento(char c, Posicion p) ElementoCreado
+    +crearObjeto(char c, Posicion p) ObjetoJuego
+  }
+  class CargadorNiveles {
+    -FabricaElementos fabrica
+    +cargar(String archivoTxt) Tablero
+  }
+
+  %% ============================================================
+  %% SINGLETON
+  %% ============================================================
+  class GestorAssets {
+    <<Singleton>>
+    -GestorAssets instancia$
+    -Map~String,String~ rutas
+    -Map~String,Image~ imagenes
+    -Map~String,Clip~ sonidos
+    +getInstancia() GestorAssets$
+    +getImagen(String clave) Image
+    +getSonido(String clave) Clip
+  }
+  class GestorSonido {
+    <<Singleton>>
+    -GestorSonido instancia$
+    +getInstancia() GestorSonido$
+    +actualizar(EventoJuego e)
+  }
+
+  %% ============================================================
+  %% VISTA — MVC View
+  %% ============================================================
   class VistaJuego {
     -PanelTablero panelTablero
     -PanelHUD panelHUD
-    -victoriaMostrada boolean
-    -controlador ControladorJuego
+    -boolean victoriaMostrada
+    -ControladorJuego controlador
     -CronometroNivel cronometro
-    +actualizar(EventoJuego e)
-    +setCronometro(CronometroNivel cronometro)
+    +setCronometro(CronometroNivel c)
     +actualizarTiempo(int segundos)
-    +inicializar(ControladorJuego controlador)
+    +inicializar(ControladorJuego c)
+    +actualizar(EventoJuego e)
     -mostrarResumenYAvanzar(EventoJuego e)
   }
   class PanelTablero {
+    -int CELDA$
+    -Tablero tablero
+    -boolean pausado
     +render(Tablero t)
     +setPausado(boolean pausado)
     #paintComponent(Graphics g)
-    -dibujarOverlayPausa( Graphics g)
-    -dibujarTerreno(Graphics g, Terreno terreno, int x, int y)
+    -dibujarTerreno(Graphics g, Terreno t, int x, int y)
     -dibujarMarcador(Graphics g, String clave, Color fallback, int x, int y)
-    -dibujarObjeto(Graphics g, ObjetoJuego objeto, int x, int y)
-    -dibujarJugador(Graphics g, Jugador jugador, int x, int y)
-    -claveObjeto(ObjetoJuego juego) String
-    -dibujarObjetoPorDefecto(Graphics g, ObjetoJuego objeto, int x, int y)
+    -dibujarObjeto(Graphics g, ObjetoJuego o, int x, int y)
+    -dibujarJugador(Graphics g, Jugador j, int x, int y)
+    -claveObjeto(ObjetoJuego o) String
+    -dibujarObjetoPorDefecto(Graphics g, ObjetoJuego o, int x, int y)
     -dibujarCaja(Graphics g, int x, int y, Color color)
-    -colorTerreno(Terreno terreno) Color
+    -colorTerreno(Terreno t) Color
+    -dibujarOverlayPausa(Graphics g)
   }
   class PanelHUD {
+    -JLabel nivel
     -JLabel movimientos
     -JLabel empujes
-    -JLabel nivel
     -JLabel tiempo
     -JButton btnUndo
     -JButton btnReiniciar
     -JButton btnPausa
-    +conectar(ControladorJuego controllador)
+    +conectar(ControladorJuego c)
     +actualizar(EventoJuego e)
     +actualizarTiempo(int segundos)
-    -actualizarLabels(int nivelActual, int movs,int emp)
-    
+    -actualizarLabels(int nivelActual, int movs, int emp)
   }
 
-  %% ===== CONTROLADOR =====
+  %% ============================================================
+  %% CONTROLADOR — MVC Controller
+  %% ============================================================
   class ControladorJuego {
     -Juego juego
     +keyPressed(KeyEvent e)
@@ -133,185 +408,90 @@ classDiagram
     +hayNivelSiguiente() boolean
   }
 
-  %% ===== SINGLETON =====
-  class GestorSonido {
-    <<Singleton>>
-    -GestorSonido instancia$
-    +getInstancia()$ GestorSonido
-    +actualizar(EventoJuego e)
-  }
-  class GestorAssets {
-    <<Singleton>>
-    -GestorAssets instancia$
-    +getInstancia()$ GestorAssets
-    +getImagen(String clave) Image
-    +getSonido(String clave) Clip
+  %% ============================================================
+  %% MAIN
+  %% ============================================================
+  class Main {
+    -List~String~ NIVELES$
+    +main(String[] args)$
+    -iniciar(List~String~ niveles)$
   }
 
-  %% ===== MEMENTO (undo) =====
-  class GestorUndo {
-    -Deque~MementoJuego~ historial
-    -int usosConsecutivos
-    +guardar(MementoJuego m)
-    +deshacer() MementoJuego
-    +puedeDeshacer() boolean
-    +limpiar()
-  }
-  class MementoJuego {
-    -char[][] estadoTablero
-    -Estadisticas estadoStats
-    +getEstadoTablero() char[][]
-    +getEstadoStats() Estadisticas
-  }
-
-  %% ===== STRATEGY (puntaje) =====
-  class EstrategiaPuntaje {
-    <<interface>>
-    +calcular(Estadisticas s) int
-  }
-  class PuntajeEstandar {
-    +calcular(Estadisticas s) int
-  }
-  class PuntajeConTiempo{
-    +calcular(Estadisticas s) int
-  }
-
-  %% ===== FACTORY METHOD (carga de niveles) =====
-  class CargadorNiveles {
-    +cargar(String archivoTxt) Tablero
-  }
-  class FabricaElementos {
-    -Map~Character, CreadorElemento~ charMap
-    +crearElemento(char c, Posicion p) ElementoCreado
-  }
-
-  %% ===== TABLERO =====
-  class Tablero {
-    -Celda[][] celdas
-    -Jugador jugador
-    +getCelda(Posicion p) Celda
-    +moverObjeto(Posicion origen, Posicion destino)
-    +esVictoria() boolean
-  }
-  class Celda {
-    -Terreno terreno
-    -ObjetoJuego objeto
-    +estaLibre() boolean
-  }
-
-  %% ===== TERRENOS =====
-  class Terreno {
-    <<abstract>>
-    +alEntrar(ObjetoJuego o, Tablero t)*
-  }
-  class Piso
-  class TerrenoResbaladizo {
-    +alEntrar() desliza hasta chocar
-  }
-  class CasillaDestino {
-    +tieneCaja() boolean
-  }
-  class CasilleroCerrojo {
-    -List~Muro~ murosAsociados
-    +alEntrar() abre muros si CajaLlave
-  }
-
-  %% ===== OBJETOS =====
-  class ObjetoJuego {
-    <<abstract>>
-    -Posicion posicion
-    +esEmpujable() boolean
-    +bloqueaPaso() boolean
-  }
-  class Jugador {
-    +mover(Direccion d)
-  }
-  class Pared
-
-  %% ===== STATE (muros) =====
-  class Muro {
-    -EstadoMuro estado
-    +setEstado(EstadoMuro e)
-    +bloqueaPaso() boolean
-  }
-  class EstadoMuro {
-    <<interface>>
-    +puedeAtravesarse() boolean
-  }
-  class MuroAbierto
-  class MuroCerrado
-
-  %% ===== CAJAS =====
-  class Caja {
-    <<abstract>>
-    +alSerEmpujada(Tablero t)
-  }
-  class CajaNormal
-  class CajaFragil {
-    -int resistencia
-    +alSerEmpujada() resta resistencia
-  }
-  class CajaLlave
-
-  %% ===== STATE (juego) =====
-  class EstadoJuego {
-    <<interface>>
-    +aceptaAcciones() boolean
-  }
-  class EstadoJugando {
-    +aceptaAcciones() boolean
-  }
-  class EstadoPausado {
-    +aceptaAcciones() boolean
-}
-
-  %% ===== RELACIONES: MVC + Observer =====
-  VistaJuego ..|> ObservadorJuego
-  GestorSonido ..|> ObservadorJuego
-  Juego --> ObservadorJuego : notifica
-  VistaJuego *-- PanelTablero
-  VistaJuego *-- PanelHUD
-  PanelTablero ..> GestorAssets : usa
-  GestorSonido ..> GestorAssets : usa
-  ControladorJuego --> Juego : invoca
-  VistaJuego --> ControladorJuego : delega input
-  EventoJuego --> Tablero
-  EventoJuego --> Estadisticas
-  EventoJuego --> Tipo
-  CronometroNivel ..|>  ObservadorJuego
-  PanelHUD  --|> JPanel
-  PanelTablero  --|> JPanel
-  VistaJuego  --|> JFrame
-  VistaJuego ..|> ObservadorJuego
+  %% ============================================================
+  %% RELACIONES — herencias Swing
+  %% ============================================================
+  VistaJuego --|> JFrame
+  PanelTablero --|> JPanel
+  PanelHUD --|> JPanel
   ControladorJuego --|> KeyAdapter
 
-  %% ===== RELACIONES: Memento =====
+  %% ============================================================
+  %% RELACIONES — Observer
+  %% ============================================================
+  VistaJuego ..|> ObservadorJuego
+  CronometroNivel ..|> ObservadorJuego
+  GestorSonido ..|> ObservadorJuego
+  Juego --> ObservadorJuego : notifica
+  EventoJuego --> Tablero
+  EventoJuego --> Estadisticas
+  EventoJuego *-- Tipo
+
+  %% ============================================================
+  %% RELACIONES — State (juego)
+  %% ============================================================
+  EstadoJugando ..|> EstadoJuego
+  EstadoPausado ..|> EstadoJuego
+  Juego --> EstadoJuego
+
+  %% ============================================================
+  %% RELACIONES — Memento
+  %% ============================================================
   Juego *-- GestorUndo
   GestorUndo o-- MementoJuego : max 15
-  Juego ..> MementoJuego : crea
+  Juego ..> MementoJuego : crea/restaura
 
-  %% ===== RELACIONES: Strategy =====
-  Juego --> EstrategiaPuntaje
-  Juego *-- Estadisticas
+  %% ============================================================
+  %% RELACIONES — Strategy + Decorator
+  %% ============================================================
   PuntajeEstandar ..|> EstrategiaPuntaje
   PuntajeConTiempo ..|> EstrategiaPuntaje
+  PuntajeConTiempo --> EstrategiaPuntaje : base
+  PuntajeConTiempo --> CronometroNivel
+  Juego --> EstrategiaPuntaje
+  Juego *-- Estadisticas
 
-  %% ===== RELACIONES: Factory + Tablero =====
-  Juego *-- Tablero
-  Juego ..> CargadorNiveles : usa
-  CargadorNiveles ..> FabricaElementos : usa
+  %% ============================================================
+  %% RELACIONES — Factory
+  %% ============================================================
+  Juego --> CargadorNiveles
+  Juego --> FabricaElementos
+  CargadorNiveles --> FabricaElementos
   CargadorNiveles ..> Tablero : crea
-  FabricaElementos ..> Terreno : crea
-  FabricaElementos ..> ObjetoJuego : crea
-  Tablero *-- Celda : 1..*
-  Celda --> Terreno
-  Celda --> ObjetoJuego : 0..1
+  FabricaElementos --> CreadorElemento
+  FabricaElementos ..> ElementoCreado : produce
+  CreadorElemento ..> ElementoCreado : crea
 
-  %% ===== RELACIONES: herencias =====
+  %% ============================================================
+  %% RELACIONES — Tablero / Celda
+  %% ============================================================
+  Juego *-- Tablero
+  Tablero *-- Celda
+  Tablero --> Jugador
+  Celda --> Terreno
+  Celda --> ObjetoJuego
+
+  %% ============================================================
+  %% RELACIONES — Terrenos
+  %% ============================================================
   Piso --|> Terreno
-  TerrenoResbaladizo --|> Terreno
   CasillaDestino --|> Terreno
+  TerrenoResbaladizo --|> Terreno
   CasilleroCerrojo --|> Terreno
+  CasilleroCerrojo o-- Muro : murosAsociados
+
+  %% ============================================================
+  %% RELACIONES — Objetos
+  %% ============================================================
   Jugador --|> ObjetoJuego
   Pared --|> ObjetoJuego
   Muro --|> ObjetoJuego
@@ -319,13 +499,36 @@ classDiagram
   CajaNormal --|> Caja
   CajaFragil --|> Caja
   CajaLlave --|> Caja
+  ObjetoJuego --> Posicion
+  ObjetoJuego --> Direccion
 
-  %% ===== RELACIONES: State =====
+  %% ============================================================
+  %% RELACIONES — State (Muro)
+  %% ============================================================
   Muro --> EstadoMuro
-  MuroAbierto ..|> EstadoMuro
   MuroCerrado ..|> EstadoMuro
-  CasilleroCerrojo ..> Muro : abre
-  EstadoPausado  ..|> EstadoJuego
-  EstadoJugando ..|> EstadoJuego
+  MuroAbierto ..|> EstadoMuro
 
-  
+  %% ============================================================
+  %% RELACIONES — Singleton
+  %% ============================================================
+  GestorSonido --> GestorAssets
+  PanelTablero ..> GestorAssets : sprites
+
+  %% ============================================================
+  %% RELACIONES — Vista / Controlador
+  %% ============================================================
+  VistaJuego *-- PanelTablero
+  VistaJuego *-- PanelHUD
+  VistaJuego --> ControladorJuego
+  VistaJuego --> CronometroNivel
+  ControladorJuego --> Juego
+
+  %% ============================================================
+  %% RELACIONES — Main
+  %% ============================================================
+  Main ..> Juego : crea
+  Main ..> VistaJuego : crea
+  Main ..> ControladorJuego : crea
+  Main ..> CronometroNivel : crea
+  Main ..> CargadorNiveles : crea
